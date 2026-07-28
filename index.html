@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🃏 Memory Match</title>
+  <style>
+    * { box-sizing: border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:'Comic Sans MS', cursive, sans-serif;
+      background: radial-gradient(circle at top, #2c3e50, #111827 72%);
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+    .app{
+      width:min(980px, calc(100vw - 24px));
+      background:rgba(15, 23, 42, 0.84);
+      border:2px solid rgba(255,255,255,.12);
+      border-radius:28px;
+      padding:24px;
+      box-shadow:0 18px 50px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      position:relative;
+    }
+    h1{
+      margin:0 0 8px;
+      text-align:center;
+      font-size:clamp(2rem, 4vw, 3.2rem);
+      color:#f1c40f;
+      text-shadow:0 2px 0 rgba(0,0,0,.35);
+    }
+    .subtitle{
+      text-align:center;
+      margin:0 0 18px;
+      opacity:.9;
+      line-height:1.5;
+    }
+    .topbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+      margin-bottom:16px;
+    }
+    .btn{
+      border:0;
+      border-radius:14px;
+      padding:12px 18px;
+      font:inherit;
+      font-weight:700;
+      cursor:pointer;
+      color:white;
+      background:#34495e;
+      transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
+      box-shadow:0 8px 18px rgba(0,0,0,.18);
+    }
+    .btn:hover{ transform:translateY(-2px); background:#2ecc71; }
+    .btn:active{ transform:translateY(1px) scale(.98); }
+    .btn.secondary{ background:#8e44ad; }
+    .btn.secondary:hover{ background:#9b59b6; }
+
+    .scoreboard{
+      display:flex;
+      gap:12px;
+      justify-content:space-between;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+      font-size:1rem;
+    }
+    .pill{
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:999px;
+      padding:10px 14px;
+      min-width:130px;
+      text-align:center;
+    }
+
+    .screen{ display:none; }
+    .screen.show{ display:block; }
+
+    .playfield{
+      display:grid;
+      place-items:center;
+      width:100%;
+      height:min(62vh,520px);
+      border-radius:22px;
+      border:2px dashed rgba(255,255,255,0.14);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      padding:16px;
+    }
+
+    .grid{
+      display:grid;
+      gap:10px;
+      width:100%;
+      height:100%;
+      perspective:800px;
+    }
+    .card{
+      position:relative;
+      border:none;
+      background:none;
+      cursor:pointer;
+      transform-style:preserve-3d;
+      transition:transform .35s ease;
+    }
+    .card.flipped, .card.matched{
+      transform:rotateY(180deg);
+    }
+    .card .face{
+      position:absolute;
+      inset:0;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      backface-visibility:hidden;
+      box-shadow:0 8px 16px rgba(0,0,0,.22);
+    }
+    .card .back{
+      background:linear-gradient(160deg, #34495e, #2c3e50);
+      font-size:1.6rem;
+    }
+    .card .front{
+      background:linear-gradient(160deg, #2ecc71, #1fa855);
+      transform:rotateY(180deg);
+      font-size:2rem;
+    }
+    .card.matched .front{
+      background:linear-gradient(160deg, #f1c40f, #e67e22);
+      opacity:.9;
+    }
+    .card.wrongPulse{
+      animation: pulseWrong .3s ease;
+    }
+    @keyframes pulseWrong{
+      0%,100%{ transform: rotateY(180deg) scale(1); }
+      50%{ transform: rotateY(180deg) scale(.92); }
+    }
+
+    .message{
+      text-align:center;
+      margin-top:14px;
+      min-height:1.5em;
+      font-weight:700;
+      line-height:1.4;
+    }
+    .footer{
+      margin-top:14px;
+      text-align:center;
+      opacity:.85;
+      font-size:.95rem;
+    }
+
+    .game-end{
+      text-align:center;
+      padding:22px 10px 6px;
+    }
+    .result{
+      font-size:clamp(1.4rem, 3vw, 2.3rem);
+      margin:10px 0 6px;
+      color:#f1c40f;
+    }
+
+    @media (max-width:640px){
+      .app{ padding:16px; border-radius:20px; }
+      .pill{ min-width: calc(50% - 6px); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="homeScreen" class="screen show">
+      <h1>🃏 Memory Match</h1>
+      <p class="subtitle">Gira le carte e trova tutte le coppie di emoji uguali.<br>Ogni round la griglia si allarga: ricorda bene dove hai già guardato!</p>
+
+      <div class="topbar">
+        <button class="btn" id="startBtn">Gioca</button>
+        <button class="btn secondary" id="resetBtn">Reset</button>
+        <button class="btn" id="commentsBtn">Commenti</button>
+        <button class="btn" id="funBtn">fun.games</button>
+      </div>
+
+      <div class="game-end">
+        <div class="result">La memoria è un muscolo: allenala.</div>
+        <p class="footer">Un gioco classico di coppie e concentrazione.</p>
+      </div>
+    </section>
+
+    <section id="gameScreen" class="screen">
+      <h1>🃏 Memory Match</h1>
+      <div class="scoreboard">
+        <div class="pill">Punti: <span id="score">0</span></div>
+        <div class="pill">Mosse: <span id="moves">0</span></div>
+        <div class="pill">Round: <span id="round">1</span></div>
+      </div>
+
+      <div class="topbar">
+        <button class="btn secondary" id="backBtn">⬅ Torna alla home</button>
+      </div>
+
+      <div class="playfield">
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="message" id="message">Trova tutte le coppie!</div>
+      <div class="footer">Meno mosse usi, più punti guadagni.</div>
+    </section>
+
+    <section id="endScreen" class="screen">
+      <h1>🃏 Memory Match</h1>
+      <div class="game-end">
+        <div class="result" id="finalScore">Hai totalizzato 0 punti!</div>
+        <p class="subtitle" id="finalMessage">Hai una buona memoria... o quasi.</p>
+        <div class="topbar">
+          <button class="btn" id="playAgainBtn">Gioca ancora</button>
+          <button class="btn secondary" id="backHomeBtn">Torna alla home</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const homeScreen = document.getElementById('homeScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const endScreen = document.getElementById('endScreen');
+
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const commentsBtn = document.getElementById('commentsBtn');
+    const funBtn = document.getElementById('funBtn');
+    const backBtn = document.getElementById('backBtn');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const backHomeBtn = document.getElementById('backHomeBtn');
+
+    const scoreEl = document.getElementById('score');
+    const movesEl = document.getElementById('moves');
+    const roundEl = document.getElementById('round');
+    const messageEl = document.getElementById('message');
+    const finalScore = document.getElementById('finalScore');
+    const finalMessage = document.getElementById('finalMessage');
+    const grid = document.getElementById('grid');
+
+    const allEmojis = ['🍀','⭐','🔷','🍁','🌸','🔺','🍄','🌙','❄️','🔶','🦋','🍉','🎈','🎲','🍩','🚀','🐝','🌵'];
+
+    let score = 0;
+    let moves = 0;
+    let round = 1;
+    let running = false;
+    let flipped = [];
+    let matchedCount = 0;
+    let totalPairs = 0;
+    let lockBoard = false;
+
+    function showScreen(screen) {
+      homeScreen.classList.remove('show');
+      gameScreen.classList.remove('show');
+      endScreen.classList.remove('show');
+      screen.classList.add('show');
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      movesEl.textContent = moves;
+      roundEl.textContent = round;
+    }
+
+    function pairsForRound(r) {
+      return Math.min(4 + Math.floor((r - 1) * 1.5), 15);
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildRound() {
+      totalPairs = pairsForRound(round);
+      matchedCount = 0;
+      moves = 0;
+      flipped = [];
+      lockBoard = false;
+      updateUI();
+
+      const chosen = shuffle(allEmojis).slice(0, totalPairs);
+      const deck = shuffle([...chosen, ...chosen]);
+
+      const cols = Math.min(Math.ceil(Math.sqrt(deck.length * 1.5)), 6);
+      const rows = Math.ceil(deck.length / cols);
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+      grid.innerHTML = '';
+
+      deck.forEach((emoji) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'card';
+        card.dataset.emoji = emoji;
+
+        const back = document.createElement('div');
+        back.className = 'face back';
+        back.textContent = '❓';
+
+        const front = document.createElement('div');
+        front.className = 'face front';
+        front.textContent = emoji;
+
+        card.appendChild(back);
+        card.appendChild(front);
+
+        card.addEventListener('click', () => handleCardClick(card));
+        grid.appendChild(card);
+      });
+
+      messageEl.textContent = 'Trova tutte le coppie!';
+    }
+
+    function handleCardClick(card) {
+      if (!running || lockBoard) return;
+      if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+      if (flipped.length === 2) return;
+
+      card.classList.add('flipped');
+      flipped.push(card);
+
+      if (flipped.length === 2) {
+        moves += 1;
+        updateUI();
+        lockBoard = true;
+        const [a, b] = flipped;
+
+        if (a.dataset.emoji === b.dataset.emoji) {
+          setTimeout(() => {
+            a.classList.add('matched');
+            b.classList.add('matched');
+            matchedCount += 1;
+            score += 3;
+            updateUI();
+            flipped = [];
+            lockBoard = false;
+
+            if (matchedCount >= totalPairs) {
+              score += Math.max(0, 30 - moves);
+              round += 1;
+              updateUI();
+              messageEl.textContent = 'Round completato! Prossimo livello...';
+              setTimeout(() => {
+                if (running) buildRound();
+              }, 900);
+            }
+          }, 400);
+        } else {
+          a.classList.add('wrongPulse');
+          b.classList.add('wrongPulse');
+          messageEl.textContent = 'Non combaciano, riprova!';
+          setTimeout(() => {
+            a.classList.remove('flipped', 'wrongPulse');
+            b.classList.remove('flipped', 'wrongPulse');
+            flipped = [];
+            lockBoard = false;
+          }, 700);
+        }
+      }
+    }
+
+    function startGame() {
+      score = 0;
+      round = 1;
+      running = true;
+      updateUI();
+      showScreen(gameScreen);
+      buildRound();
+    }
+
+    function resetGame() {
+      running = false;
+      score = 0;
+      moves = 0;
+      round = 1;
+      flipped = [];
+      grid.innerHTML = '';
+      updateUI();
+      messageEl.textContent = 'Trova tutte le coppie!';
+      showScreen(homeScreen);
+    }
+
+    function endGameManually() {
+      // Non usato: il gioco continua a oltranza finché l'utente non torna alla home
+    }
+
+    startBtn.addEventListener('click', startGame);
+    playAgainBtn.addEventListener('click', startGame);
+    resetBtn.addEventListener('click', resetGame);
+    backBtn.addEventListener('click', resetGame);
+    backHomeBtn.addEventListener('click', resetGame);
+    commentsBtn.addEventListener('click', () => window.open('https://github.com/wmichaeljackson/memory-match/discussions/1', '_blank'));
+    funBtn.addEventListener('click', () => location.href = 'https://wmichaeljackson.github.io/fun.games/');
+
+    updateUI();
+    showScreen(homeScreen);
+  </script>
+</body>
+</html>
